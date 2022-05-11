@@ -17,3 +17,12 @@ import face_recognition
 import requests
 from bs4 import BeautifulSoup
 from django.utils import encoding
+
+from mod import doubanfinder
+from mod import facebookfinder
+from mod import instagramfinder
+from mod import linkedinfinder
+from mod import pinterestfinder
+from mod import twitterfinder
+from mod import vkontaktefinder
+from mod import weibofinder
