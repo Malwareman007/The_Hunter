@@ -69,3 +69,34 @@ pinterest_password = ""
 global showbrowser
 
 startTime = datetime.now()
+
+class Person(object):
+    first_name = ""
+    last_name = ""
+    full_name = ""
+    person_image = ""
+    person_imagelink = ""
+    linkedin = ""
+    linkedinimage = ""
+    facebook = ""
+    facebookimage = ""  # higher quality but needs authentication to access
+    facebookcdnimage = ""  # lower quality but no authentication, used for HTML output
+    twitter = ""
+    twitterimage = ""
+    instagram = ""
+    instagramimage = ""
+    vk = ""
+    vkimage = ""
+    weibo = ""
+    weiboimage = ""
+    douban = ""
+    doubanimage = ""
+    pinterest = ""
+    pinterestimage = ""
+
+    def __init__(self, first_name, last_name, full_name, person_image):
+        self.first_name = first_name
+        self.last_name = last_name
+        self.full_name = full_name
+        self.person_image = person_image
+
