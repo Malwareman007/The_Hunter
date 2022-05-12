@@ -137,3 +137,17 @@ class Instagramfinder(object):
                 except:
                     # The find imgsrc fails on search items that arn't profiles so we catch and continue
                     continue
+
+			
+            return picturelist
+        except Exception as e:
+            print('Error on line {}'.format(sys.exc_info()[-1].tb_lineno) + e)
+            picturelist = []
+            # print "Error"
+            return picturelist
+
+    def testdeletecookies(self):
+        self.driver.delete_all_cookies()
+
+    def kill(self):
+        self.driver.quit()
