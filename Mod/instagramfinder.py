@@ -70,3 +70,70 @@ class Instagramfinder(object):
                 except:
                     # print("Closing Message Failed or did not exist")
                     pass
+
+		 else:
+                print("[-] Instagram Login Failed [-]\n")
+        # sleep(3600)
+        else:
+            print(
+                "Instagram Login Page title field seems to have changed, please make an issue on: https://github.com/Greenwolf/social_mapper")
+
+    def getInstagramProfiles(self, first_name, last_name, username, password):
+        try:
+            url = "https://www.instagram.com/"
+            self.driver.get(url)
+            sleep(3)
+            try:
+                # print("Closing \"Turn On Notifications\" message")
+                self.driver.find_element_by_class_name("aOOlW").click()
+                sleep(3)
+            except:
+                # print("Closing Message Failed or did not exist")
+                pass
+            # searchbar = self.driver.find_element_by_xpath("//body")
+            # searchbar.send_keys(Keys.TAB)
+            # searchbar = self.driver.find_element_by_class_name("_avvq0").click()
+            picturelist = []
+            try:
+                searchbar = self.driver.find_element_by_xpath("//input[@placeholder='Search']")
+            except:
+                # if cant find search bar try to relogin
+                self.doLogin(username, password)
+                self.driver.get(url)
+                sleep(3)
+                try:
+                    searchbar = self.driver.find_element_by_xpath("//input[@placeholder='Search']")
+                except:
+                    print("Instagram Timeout Error, session has expired and attempts to reestablish have failed")
+                    return picturelist
+            sleep(1)
+            full_name = first_name + " " + last_name
+            searchbar.send_keys(full_name)
+            sleep(1)
+            searchresponse = self.driver.page_source.encode('utf-8')
+            sleep(1)
+            soupParser = BeautifulSoup(searchresponse, 'html.parser')
+
+            # for element in soupParser.find_all('a', {'class': '_ndl3t'}):
+            for element in soupParser.find_all('a', {'class': 'yCE8d'}):
+                # print element
+                link = element['href']
+                try:
+                    # profilepic = element.find('img')['src']
+                    # print profilepic
+                    # Errors with instagram https://github.com/stevenschobert/instafeed.js/issues/549
+
+                    # Old code for getting a bigger instagram profile picture, doesnt work since March 23rd 2018
+                    # profilepicwithsmallid = element.find('img')['src']
+                    # if not "150x150" in profilepicwithsmallid:
+                    #    continue
+                    # profilepicbadurl = profilepicwithsmallid.replace('150x150', '600x600')
+                    # profilepic = profilepicbadurl.split("/")[0] + "//" + profilepicbadurl.split("/")[2] + "/" + profilepicbadurl.split("/")[6] + "/" + profilepicbadurl.split("/")[7] + "/" + profilepicbadurl.split("/")[8]
+
+                    # New code for getting instagram profile pic, if possible make it better with a bigger image, but may not be possible anymore
+                    profilepic = element.find('img')['src']
+
+                    picturelist.append(["https://instagram.com" + link, profilepic, 1.0])
+                except:
+                    # The find imgsrc fails on search items that arn't profiles so we catch and continue
+                    continue
