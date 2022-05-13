@@ -26,7 +26,7 @@ The Hunter takes a variety of input types such as:
 * An organisation's name, searching via LinkedIn
 * A folder full of named images
 * A CSV file with names and URL’s to images online
-* **Usecases** (Why you want to run this)
+### **Usecases** (Why you want to run this)
 * TheHunter is primarily aimed at Penetration Testers and Red Teamers, who will use it to expand their target lists and find their social media profiles. From here what you do is only limited by your imagination, but here are a few ideas to get started:
 
 (Note:The Hunter does not perform these attacks, it gathers you the data you need to perform them on a mass scale.)
