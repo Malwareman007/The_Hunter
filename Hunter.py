@@ -100,3 +100,14 @@ class Person(object):
         self.full_name = full_name
         self.person_image = person_image
 
+class PotentialPerson(object):
+    full_name = ""
+    profile_link = ""
+    image_link = ""
+
+    def __init__(self, full_name, profile_link, image_link):
+        self.full_name = full_name
+        self.profile_link = profile_link
+        self.image_link = image_link
+
+
