@@ -6,7 +6,7 @@ if [ "$isrootrunning" != "root" ]; then
     exit 0
 fi
 
-# update OS
+# update and upgrade OS
 sudo apt-get update -y
 sudo apt-get upgrade -y
 
