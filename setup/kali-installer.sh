@@ -33,11 +33,11 @@ sudo tar xvzf geckodriver-v0.27.0-linux64.tar.gz
 sudo mv geckodriver /usr/bin/geckodriver
 
 # Install social mapper and python requirements
-sudo chmod -R 777 ../../social_mapper
+sudo chmod -R 777 ../../The_Hunter
 sudo python3 -m pip install --no-cache-dir -r requirements.txt
 
 currentdir=$(pwd)
 echo ""
-echo "Please enter your account credentials in $currentdir/social_mapper/social_mapper.py"
+echo "Please enter your account credentials in $currentdir/The_Hunter/Hunter.py"
 echo "Run as your normal user, not as root"
 
