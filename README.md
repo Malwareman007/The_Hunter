@@ -63,7 +63,7 @@ Make sure the new version of Firefox is in the path. If not manually add it.
 
 Download the latest version of Geckodriver here:
 
-[download_link](https://github.com/mozilla/geckodriver/releases)
+[Download_Link](https://github.com/mozilla/geckodriver/releases)
 
 3. Install the required libraries:
 On Linux install the following prerequisites:
