@@ -110,4 +110,55 @@ class PotentialPerson(object):
         self.profile_link = profile_link
         self.image_link = image_link
 
+    def fill_facebook(peoplelist):
+    FacebookfinderObject = facebookfinder.Facebookfinder(showbrowser)
+    FacebookfinderObject.doLogin(facebook_username, facebook_password)
+    if args.waitafterlogin:
+        input("Press Enter to continue after verifying you are logged in...")
+
+    count = 1
+    ammount = len(peoplelist)
+    for person in peoplelist:
+        if args.vv == True or args.debug == True:
+            print("Facebook Check %i/%i : %s" % (count, ammount, person.full_name))
+        else:
+            sys.stdout.write(
+                "\rFacebook Check %i/%i : %s                                " % (count, ammount, person.full_name))
+            sys.stdout.flush()
+        count = count + 1
+        # Testcode to mimic a session timeout
+        # if count == 3:
+        #    print "triggered delete"
+        #    FacebookfinderObject.testdeletecookies()
+        #print(person.person_imagelink)
+        #print(person.person_image)
+        if person.person_image:
+            try:
+                target_image = face_recognition.load_image_file(person.person_image)
+                target_encoding = face_recognition.face_encodings(target_image)[0]
+                profilelist = FacebookfinderObject.getFacebookProfiles(person.first_name, person.last_name,
+                                                                       facebook_username, facebook_password)
+                if args.debug == True:
+                    print(profilelist)
+            except:
+                continue
+        else:
+            continue
+
+        early_break = False
+        updatedlist = []
+        # for profilelink,distance in profilelist:
+        for profilelink, profilepic, distance, cdnpicture in profilelist:
+            try:
+                os.remove("potential_target_image.jpg")
+            except:
+                pass
+            if early_break:
+                break
+            # image_link = FacebookfinderObject.getProfilePicture(profilelink)
+            image_link = profilepic
+            # print profilelink
+            # print image_link
+            # print "----"
+            cookies = FacebookfinderObject.getCookies()
 
