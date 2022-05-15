@@ -162,7 +162,10 @@ python3 Hunter.py -f company -i "Evil Corp LLC" -m accurate -li -e "<first>.<las
 ## Troubleshooting
 <img src="https://github.com/MLX15/MLX15/blob/master/a.gif"></a>
 
-Social Media sites often change their page formats and class names, if Hunter isn't working for you on a specific site, check out the [docs](docs/Troubleshooting_The_Hunter) section for troubleshooting advice on how to fix it. Please feel free to submit a pull request with your fixes.
+Social Media sites often change their page formats and class names, if Hunter isn't working for you on a specific site, check out the [Trouble](Troubleshooting_The_Hunter) section for troubleshooting advice on how to fix it. Please feel free to submit a pull request with your fixes.
+
+![image](https://user-images.githubusercontent.com/86009160/168471623-129f4c3d-c546-465f-b496-6893e375b0d8.png)
+
 
 ### Maltego
 For a guide to loading your Hunter results into Maltego, check out the [docs](docs/Maltego_Import_Guide) section.
