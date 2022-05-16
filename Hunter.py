@@ -18,14 +18,14 @@ import requests
 from bs4 import BeautifulSoup
 from django.utils import encoding
 
-from Mod import douban
-from Mod import facebook
-from Mod import instagram
-from Mod import linkedin
-from Mod import pinterest
-from Mod import twitter
-from Mod import vkontakte
-from Mod import weibo
+from modules import doubanfinder
+from modules import facebookfinder
+from modules import instagramfinder
+from modules import linkedinfinder
+from modules import pinterestfinder
+from modules import twitterfinder
+from modules import vkontaktefinder
+from modules import weibofinder
 
 assert sys.version_info >= (3,), "Only Python 3 is currently supported."
 
@@ -70,6 +70,7 @@ global showbrowser
 
 startTime = datetime.now()
 
+
 class Person(object):
     first_name = ""
     last_name = ""
@@ -100,6 +101,7 @@ class Person(object):
         self.full_name = full_name
         self.person_image = person_image
 
+
 class PotentialPerson(object):
     full_name = ""
     profile_link = ""
@@ -110,7 +112,8 @@ class PotentialPerson(object):
         self.profile_link = profile_link
         self.image_link = image_link
 
-    def fill_facebook(peoplelist):
+
+def fill_facebook(peoplelist):
     FacebookfinderObject = facebookfinder.Facebookfinder(showbrowser)
     FacebookfinderObject.doLogin(facebook_username, facebook_password)
     if args.waitafterlogin:
@@ -161,7 +164,7 @@ class PotentialPerson(object):
             # print image_link
             # print "----"
             cookies = FacebookfinderObject.getCookies()
-             if image_link:
+            if image_link:
                 try:
                     # Set fake user agent as Facebook blocks Python requests default user agent
                     headers = {
@@ -209,7 +212,7 @@ class PotentialPerson(object):
                     # FacebookfinderObject.doLogin(facebook_username,facebook_password)
                     # cookies = FacebookfinderObject.getCookies()
                     continue
-               # For accurate mode pull out largest distance and if it's bigger than the threshold then it's the most accurate result
+        # For accurate mode pull out largest distance and if it's bigger than the threshold then it's the most accurate result
         if args.mode == "accurate":
             highestdistance = 1.0
             bestprofilelink = ""
@@ -913,15 +916,15 @@ def loadPage(client, url, data=None):
 # Setup Argument parser to print help and lock down options
 parser = argparse.ArgumentParser(
     formatter_class=argparse.RawDescriptionHelpFormatter,
-    description='Social Mapper by Jacob Wilkin (Greenwolf)',
+    description='The_Hunter by Malwareman',
     usage='%(prog)s -f <format> -i <input> -m <mode> -t <threshold> <options>')
 parser.add_argument('-v', '--version', action='version',
-                    version='%(prog)s 0.1.0 : Social Mapper by Greenwolf (Github Link Here)')
+                    version='%(prog)s 0.1.0 : The_Hunter by malwareman(guithublink here)')
 parser.add_argument('-vv', '--verbose', action='store_true', dest='vv', help='Verbose Mode')
 parser.add_argument('-d', '--debug', action='store_true', dest='debug', help='Debug Mode')
 parser.add_argument('-f', '--format', action='store', dest='format', required=True,
-                    choices=set(("csv", "imagefolder", "company", "socialmapper")),
-                    help='Specify if the input file is either a \'company\',a \'CSV\',a \'imagefolder\' or a Social Mapper HTML file to resume')
+                    choices=set(("csv", "imagefolder", "company", "the_hunter")),
+                    help='Specify if the input file is either a \'company\',a \'CSV\',a \'imagefolder\' or a The_Hunter HTML file to resume')
 parser.add_argument('-i', '--input', action='store', dest='input', required=True,
                     help='The name of the CSV file, input folder or company name to use as input')
 parser.add_argument('-m', '--mode', action='store', dest='mode', required=True, choices=set(("accurate", "fast")),
@@ -1033,7 +1036,7 @@ if args.format == "csv":
 # remove this when fixed downloading
 # sys.exit(1)
 
-# Parse image folder full of images and names into social_mapper
+# Parse image folder full of images and names into The_Hunter
 if args.format == "imagefolder":
     if not args.input.endswith("/"):
         args.input = args.input + "/"
@@ -1166,11 +1169,11 @@ if args.format == "company":
                     # This triggers when a profile doesn't have an image associated with it
                     continue
 
-# To continue a Social Mapper run for additional sites.
-if args.format == "socialmapper":
+# To continue a The_Hunter run for additional sites.
+if args.format == "TheHunter":
     if args.a == True:
         print(
-            "This option is for adding additional sites to a Social Mapper report\nFeed in a Social Mapper HTML file that's only been partially run, for example:\nFirst run (LinkedIn, Facebook, Twitter): python social_mapper -f company -i \"SpiderLabs\" -m fast -t standard -li -fb -tw\n Second run (adding Instagram and Google Plus): python social_mapper -f socialmapper -i SpiderLabs-social-mapper.html -m fast -t standard -ig -gp")
+            "This option is for adding additional sites to a The_Hunter report\nFeed in a The_Hunter HTML file that's only been partially run, for example:\nFirst run (LinkedIn, Facebook, Twitter): python The_Hunter -f company -i \"SpiderLabs\" -m fast -t standard -li -fb -tw\n Second run (adding Instagram and Google Plus): python The_Hunter -f The_Hunter -i SpiderLabs-The_Hunter.html -m fast -t standard -ig -gp")
         sys.exit(1)
     exit = False
     try:
@@ -1247,43 +1250,43 @@ if args.a == True or args.fb == True:
             print(e)
             print("[-]")
     else:
-        print("Please provide Facebook Login Credentials in the social_mapper.py file")
+        print("Please provide Facebook Login Credentials in the Hunter.py file")
 if args.a == True or args.tw == True:
     if not (twitter_username == "" or twitter_password == ""):
         peoplelist = fill_twitter(peoplelist)
     else:
-        print("Please provide Twitter Login Credentials in the social_mapper.py file")
+        print("Please provide Twitter Login Credentials in the hunter.py file")
 if args.a == True or args.pin == True:
     if not (pinterest_username == "" or pinterest_password == ""):
         peoplelist = fill_pinterest(peoplelist)
     else:
-        print("Please provide Pinterest Login Credentials in the social_mapper.py file")
+        print("Please provide Pinterest Login Credentials in the hunter.py file")
 if args.a == True or args.ig == True:
     if not (instagram_username == "" or instagram_password == ""):
         peoplelist = fill_instagram(peoplelist)
     else:
-        print("Please provide Instagram Login Credentials in the social_mapper.py file")
+        print("Please provide Instagram Login Credentials in the hunter.py file")
 if not args.format == "linkedint" and not args.format == "company":
     if args.a == True or args.li == True:
         if not (linkedin_username == "" or linkedin_password == ""):
             peoplelist = fill_linkedin(peoplelist)
         else:
-            print("Please provide LinkedIn Login Credentials in the social_mapper.py file")
+            print("Please provide LinkedIn Login Credentials in the hunter.py file")
 if args.a == True or args.vk == True:
     if not (vk_username == "" or vk_password == ""):
         peoplelist = fill_vkontakte(peoplelist)
     else:
-        print("Please provide VK (VKontakte) Login Credentials in the social_mapper.py file")
+        print("Please provide VK (VKontakte) Login Credentials in the hunter.py file")
 if args.a == True or args.wb == True:
     if not (weibo_username == "" or weibo_password == ""):
         peoplelist = fill_weibo(peoplelist)
     else:
-        print("Please provide Weibo Login Credentials in the social_mapper.py file")
+        print("Please provide Weibo Login Credentials in the hunter.py file")
 if args.a == True or args.db == True:
     if not (douban_username == "" or douban_password == ""):
         peoplelist = fill_douban(peoplelist)
     else:
-        print("Please provide Douban Login Credentials in the social_mapper.py file")
+        print("Please provide Douban Login Credentials in the hunter.py file")
 
 # Write out updated people list to a CSV file along with other output if
 csv = []
@@ -1296,49 +1299,49 @@ if args.input[0] == ".":
     args.input = args.input[1:]
     dot_removed = True
 
-outputfilename = "SM-Results/" + args.input.replace("\"", "").replace("/", "-") + "-social-mapper.csv"
+outputfilename = "SM-Results/" + args.input.replace("\"", "").replace("/", "-") + "-the-hunter.csv"
 phishingoutputfilename = "SM-Results/" + args.input.replace("\"", "").replace("/", "-")
 if args.format == "imagefolder":
-    outputfilename = "SM-Results/results-social-mapper.csv"
+    outputfilename = "SM-Results/results-the-hunter.csv"
     phishingoutputfilename = "SM-Results/results"
 filewriter = open(outputfilename.format(outputfilename), 'w')
 titlestring = "Full Name,"
-if args.a == True or args.li == True or args.format == "socialmapper":
+if args.a == True or args.li == True or args.format == "The_Hunter":
     titlestring = titlestring + "LinkedIn,"
     if args.email is not None:
         phishingoutputfilenamelinkedin = phishingoutputfilename + "-linkedin.csv"
         filewriterlinkedin = open(phishingoutputfilenamelinkedin.format(phishingoutputfilenamelinkedin), 'w')
-if args.a == True or args.fb == True or args.format == "socialmapper":
+if args.a == True or args.fb == True or args.format == "The_Hunter":
     titlestring = titlestring + "Facebook,"
     if args.email is not None:
         phishingoutputfilenamefacebook = phishingoutputfilename + "-facebook.csv"
         filewriterfacebook = open(phishingoutputfilenamefacebook.format(phishingoutputfilenamefacebook), 'w')
-if args.a == True or args.tw == True or args.format == "socialmapper":
+if args.a == True or args.tw == True or args.format == "The_Hunter":
     titlestring = titlestring + "Twitter,"
     if args.email is not None:
         phishingoutputfilenametwitter = phishingoutputfilename + "-twitter.csv"
         filewritertwitter = open(phishingoutputfilenametwitter.format(phishingoutputfilenametwitter), 'w')
-if args.a == True or args.pin == True or args.format == "socialmapper":
+if args.a == True or args.pin == True or args.format == "The_Hunter":
     titlestring = titlestring + "Pinterest,"
     if args.email is not None:
         phishingoutputfilenamepinterest = phishingoutputfilename + "-pinterest.csv"
         filewriterpinterest = open(phishingoutputfilenamepinterest.format(phishingoutputfilenamepinterest), 'w')
-if args.a == True or args.ig == True or args.format == "socialmapper":
+if args.a == True or args.ig == True or args.format == "The_Hunter":
     titlestring = titlestring + "Instagram,"
     if args.email is not None:
         phishingoutputfilenameinstagram = phishingoutputfilename + "-instagram.csv"
         filewriterinstagram = open(phishingoutputfilenameinstagram.format(phishingoutputfilenameinstagram), 'w')
-if args.a == True or args.vk == True or args.format == "socialmapper":
+if args.a == True or args.vk == True or args.format == "The_Hunter":
     titlestring = titlestring + "VKontakte,"
     if args.email is not None:
         phishingoutputfilenamevkontakte = phishingoutputfilename + "-vkontakte.csv"
         filewritervkontakte = open(phishingoutputfilenamevkontakte.format(phishingoutputfilenamevkontakte), 'w')
-if args.a == True or args.wb == True or args.format == "socialmapper":
+if args.a == True or args.wb == True or args.format == "The_Hunter":
     titlestring = titlestring + "Weibo,"
     if args.email is not None:
         phishingoutputfilenameweibo = phishingoutputfilename + "-weibo.csv"
         filewriterweibo = open(phishingoutputfilenameweibo.format(phishingoutputfilenameweibo), 'w')
-if args.a == True or args.db == True or args.format == "socialmapper":
+if args.a == True or args.db == True or args.format == "The_Hunter":
     titlestring = titlestring + "Douban,"
     if args.email is not None:
         phishingoutputfilenamedouban = phishingoutputfilename + "-douban.csv"
@@ -1361,56 +1364,56 @@ for person in peoplelist:
         except:
             email = "Error"
 
-    if args.a == True or args.li == True or args.format == "socialmapper":
+    if args.a == True or args.li == True or args.format == "The_Hunter":
         writestring = writestring + '"%s",' % (person.linkedin)
         if person.linkedin != "" and args.email is not None:
             if email != "Error":
                 linkedinwritestring = '"%s","%s","%s","%s","%s","%s"\n' % (
                 person.first_name, person.last_name, person.full_name, email, person.linkedin, person.linkedinimage)
                 filewriterlinkedin.write(linkedinwritestring)
-    if args.a == True or args.fb == True or args.format == "socialmapper":
+    if args.a == True or args.fb == True or args.format == "The_Hunter":
         writestring = writestring + '"%s",' % (person.facebook)
         if person.facebook != "" and args.email is not None:
             if email != "Error":
                 facebookwritestring = '"%s","%s","%s","%s","%s","%s"\n' % (
                 person.first_name, person.last_name, person.full_name, email, person.facebook, person.facebookcdnimage)
                 filewriterfacebook.write(facebookwritestring)
-    if args.a == True or args.tw == True or args.format == "socialmapper":
+    if args.a == True or args.tw == True or args.format == "The_Hunter":
         writestring = writestring + '"%s",' % (person.twitter)
         if person.twitter != "" and args.email is not None:
             if email != "Error":
                 twitterwritestring = '"%s","%s","%s","%s","%s","%s"\n' % (
                 person.first_name, person.last_name, person.full_name, email, person.twitter, person.twitterimage)
                 filewritertwitter.write(twitterwritestring)
-    if args.a == True or args.pin == True or args.format == "socialmapper":
+    if args.a == True or args.pin == True or args.format == "The_Hunter":
         writestring = writestring + '"%s",' % (person.pinterest)
         if person.pinterest != "" and args.email is not None:
             if email != "Error":
                 pinterestwritestring = '"%s","%s","%s","%s","%s","%s"\n' % (
                 person.first_name, person.last_name, person.full_name, email, person.pinterest, person.pinterestimage)
                 filewriterpinterest.write(pinterestwritestring)
-    if args.a == True or args.ig == True or args.format == "socialmapper":
+    if args.a == True or args.ig == True or args.format == "The_Hunter":
         writestring = writestring + '"%s",' % (person.instagram)
         if person.instagram != "" and args.email is not None:
             if email != "Error":
                 instagramwritestring = '"%s","%s","%s","%s","%s","%s"\n' % (
                 person.first_name, person.last_name, person.full_name, email, person.instagram, person.instagramimage)
                 filewriterinstagram.write(instagramwritestring)
-    if args.a == True or args.vk == True or args.format == "socialmapper":
+    if args.a == True or args.vk == True or args.format == "The_Hunter":
         writestring = writestring + '"%s",' % (person.vk)
         if person.vk != "" and args.email is not None:
             if email != "Error":
                 vkwritestring = '"%s","%s","%s","%s","%s","%s"\n' % (
                 person.first_name, person.last_name, person.full_name, email, person.vk, person.vkimage)
                 filewritervkontakte.write(vkwritestring)
-    if args.a == True or args.wb == True or args.format == "socialmapper":
+    if args.a == True or args.wb == True or args.format == "The_Hunter":
         writestring = writestring + '"%s",' % (person.weibo)
         if person.weibo != "" and args.email is not None:
             if email != "Error":
                 weibowritestring = '"%s","%s","%s","%s","%s","%s"\n' % (
                 person.first_name, person.last_name, person.full_name, email, person.weibo, person.weiboimage)
                 filewriterweibo.write(weibowritestring)
-    if args.a == True or args.db == True or args.format == "socialmapper":
+    if args.a == True or args.db == True or args.format == "The_Hunter":
         writestring = writestring + '"%s",' % (person.douban)
         if person.douban != "" and args.email is not None:
             if email != "Error":
@@ -1492,9 +1495,9 @@ except:
     pass
 
 # Code for generating HTML file
-htmloutputfilename = "SM-Results/" + args.input.replace("\"", "").replace("/", "-") + "-social-mapper.html"
+htmloutputfilename = "SM-Results/" + args.input.replace("\"", "").replace("/", "-") + "-the-hunter.html"
 if args.format == "imagefolder":
-    htmloutputfilename = "SM-Results/results-social-mapper.html"
+    htmloutputfilename = "SM-Results/results-the-hunter.html"
 filewriter = open(htmloutputfilename.format(htmloutputfilename), 'w')
 # background-color: #4CAF50;
 css = """<meta charset="utf-8" />
@@ -1651,7 +1654,7 @@ filewriter.write(header)
 for person in peoplelist:
     local_image_link = person.person_imagelink
     if args.format == "imagefolder":
-        outputfoldername =  args.input.replace("\"","").replace("/","-") + "-social-mapper"
+        outputfoldername =  args.input.replace("\"","").replace("/","-") + "-the-hunter"
         local_image_link = "./" + outputfoldername + "/" + person.full_name + ".jpg"
     
     body = "<tbody>" \
@@ -1681,8 +1684,8 @@ filewriter.write(foot)
 print("HTML file: " + htmloutputfilename + "\n")
 filewriter.close()
 
-# copy images from Social Mapper to output folder
-outputfoldername = "SM-Results/" + args.input.replace("\"","").replace("/","-") + "-social-mapper"
+# copy images from The_Hunter to output folder
+outputfoldername = "SM-Results/" + args.input.replace("\"","").replace("/","-") + "-The-Hunter"
 if args.format == "imagefolder":
     if dot_removed == True:
         args.input = "." + args.input
