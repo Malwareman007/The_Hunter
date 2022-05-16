@@ -953,3 +953,757 @@ parser.add_argument('-db', '--douban', action='store_true', dest='db', help='Fla
 
 args = parser.parse_args()
 
+if not (args.a or args.fb or args.tw or args.pin or args.ig or args.li or args.vk or args.wb or args.db):
+    parser.error(
+        'No sites specified requested, add -a for all, or a combination of the sites you want to check using a mix of -fb -tw -ig -li -pn -vk -db -wb')
+
+if args.waitafterlogin and not args.showbrowser:
+    parser.error('Cannot wait after login (-w) without showing the browser (-s)')
+
+# Set up face matching threshold
+threshold = 0.6
+try:
+    if args.thresholdinput == "superstrict":
+        threshold = 0.4
+    if args.thresholdinput == "strict":
+        threshold = 0.5
+    if args.thresholdinput == "standard":
+        threshold = 0.6
+    if args.thresholdinput == "loose":
+        threshold = 0.7
+except:
+    pass
+
+if args.showbrowser:
+    showbrowser = True
+else:
+    showbrowser = False
+
+exit = True
+# remove targets dir for remaking
+if os.path.exists('temp-targets'):
+    shutil.rmtree('temp-targets')
+# people list to hold people in memory
+peoplelist = []
+
+# Testing
+'''opts = Options()
+opts.headless = False
+driver = Firefox(options=opts)
+driver.get('http://webcode.me')
+print(driver.title)
+assert 'My html page' == driver.title
+driver.quit()
+
+print("exit now")
+time.sleep(5000)
+'''
+
+# Fill people list from document with just name + image link
+if args.format == "csv":
+    exit = False
+    file = open(args.input, 'rb')
+    data = file.read()
+    file.close()
+    try:
+        os.remove('temp.csv')
+    except OSError:
+        pass
+    tempcsv = open('temp.csv', 'wb')
+    # tempcsv.write(data.replace('\x00',''))
+    tempcsv.write(data.rstrip(b'\x00'))
+    tempcsv.close()
+    if not os.path.exists('temp-targets'):
+        os.makedirs('temp-targets')
+    filereader = csv.reader(open('temp.csv', 'r'), delimiter=",")
+    for full_name, person_image in filereader:
+        try:
+            full_name = encoding.smart_str(full_name, encoding='ascii', errors='ignore')
+            person_image = encoding.smart_str(person_image, encoding='ascii', errors='ignore')
+            # print person_image
+            urllib.request.urlretrieve(person_image, "temp-targets/" + full_name + ".jpg")
+            first_name = full_name.split(" ")[0]
+            last_name = full_name.split(" ", 1)[1]
+            person = Person(first_name, last_name, full_name, "temp-targets/" + full_name + ".jpg")
+            person.person_imagelink = person_image
+            peoplelist.append(person)
+        except Exception as e:
+            print("Error getting image or creating person structure, skipping:" + full_name)
+
+# remove this when fixed downloading
+# sys.exit(1)
+
+# Parse image folder full of images and names into social_mapper
+if args.format == "imagefolder":
+    if not args.input.endswith("/"):
+        args.input = args.input + "/"
+    exit = False
+    for filename in os.listdir(args.input):
+        if filename.endswith(".jpg") or filename.endswith(".png") or filename.endswith(".jpeg"):
+            full_name = filename.split(".")[0]
+            first_name = full_name.split(" ")[0]
+            try:
+                last_name = full_name.split(" ")[1]
+            except:
+                last_name = ""
+            first_name = encoding.smart_str(first_name, encoding='ascii', errors='ignore')
+            last_name = encoding.smart_str(last_name, encoding='ascii', errors='ignore')
+            full_name = encoding.smart_str(full_name, encoding='ascii', errors='ignore')
+            person = Person(first_name, last_name, full_name, args.input + filename)
+            person.person_imagelink = args.input + filename
+            peoplelist.append(person)
+
+# Get targets from LinkedIn company search
+if args.format == "company":
+    exit = False
+    if not os.path.exists('temp-targets'):
+        os.makedirs('temp-targets')
+    cookies = authenticate()  # perform authentication
+    companyid = 0
+    if args.companyid is not None:  # Don't find company id, use provided id from -cid or --companyid flag
+        print("Using supplied company Id: %s" % args.companyid)
+        companyid = args.companyid
+    else:
+        # code to get company ID based on name
+        companyid = 0
+        url = "https://www.linkedin.com/voyager/api/typeahead/hits?q=blended&query=%s" % args.input
+        headers = {'Csrf-Token': 'ajax:0397788525211216808', 'X-RestLi-Protocol-Version': '2.0.0'}
+        cookies['JSESSIONID'] = 'ajax:0397788525211216808'
+        r = requests.get(url, cookies=cookies, headers=headers)
+        content = json.loads(r.text)
+        firstID = 0
+        for i in range(0, len(content['elements'])):
+            try:
+                companyid = content['elements'][i]['hitInfo']['com.linkedin.voyager.typeahead.TypeaheadCompany']['id']
+                if firstID == 0:
+                    firstID = companyid
+                print("[Notice] Found company ID: %s" % companyid)
+            except:
+                continue
+        companyid = firstID
+        if companyid == 0:
+            print("[WARNING] No valid company ID found in auto, please restart and find your own")
+            sys.exit(1)
+    print("[*] Using company ID: %s" % companyid)
+
+    url = "https://www.linkedin.com/voyager/api/search/cluster?count=40&guides=List(v->PEOPLE,facetCurrentCompany->%s)&origin=OTHER&q=guided&start=0" % (
+        companyid)
+    headers = {'Csrf-Token': 'ajax:0397788525211216808', 'X-RestLi-Protocol-Version': '2.0.0'}
+    cookies['JSESSIONID'] = 'ajax:0397788525211216808'
+    r = requests.get(url, cookies=cookies, headers=headers)
+    content = json.loads(r.text)
+    try:
+        data_total = content['elements'][0]['total']
+    except IndexError:
+        print("Company has no people listed, nothing to match against other Social Networks!")
+        sys.exit(0)
+
+    # Calculate pages off final results at 40 results/page
+    pages = math.ceil(data_total / 40)
+    if pages == 0:
+        pages = 1
+    if data_total % 40 == 0:
+        # Because we count 0... Subtract a page if there are no left over results on the last page
+        pages = pages - 1
+    if pages == 0:
+        print("[!] Try to use quotes in the search name")
+        sys.exit(0)
+
+    print("[*] %i Results Found" % data_total)
+    if data_total > 1000:
+        pages = 25
+        print("[*] LinkedIn only allows 1000 results. Refine keywords to capture all data")
+    print("[*] Fetching %i Pages" % pages)
+    print()
+    companyname = args.input.strip("\"")
+    for p in range(pages):
+        url = "https://www.linkedin.com/voyager/api/search/cluster?count=40&guides=List(v->PEOPLE,facetCurrentCompany->%s)&origin=OTHER&q=guided&start=%i" % (
+        companyid, p * 40)
+        r = requests.get(url, cookies=cookies, headers=headers)
+        content = r.text.encode('UTF-8')
+        content = json.loads(content)
+        # print "[*] Fetching page %i with %i results for %s" % ((p),len(content['elements'][0]['elements']),companyname)
+        sys.stdout.write("\r[*] Fetching page %i/%i with %i results for %s" % (
+        (p), pages, len(content['elements'][0]['elements']), companyname))
+        sys.stdout.flush()
+        # code to get users, for each user with a picture create a person
+        for c in content['elements'][0]['elements']:
+            if 'com.linkedin.voyager.search.SearchProfile' in c['hitInfo'] and \
+                c['hitInfo']['com.linkedin.voyager.search.SearchProfile']['headless'] == False:
+                try:
+                    # get the link to profile pic, link to LinkedIn profile page, and their full name
+                    # person_image = "https://media.licdn.com/mpr/mpr/shrinknp_400_400%s" % c['hitInfo']['com.linkedin.voyager.search.SearchProfile']['miniProfile']['picture']['com.linkedin.voyager.common.MediaProcessorImage']['id']
+                    first_name = c['hitInfo']['com.linkedin.voyager.search.SearchProfile']['miniProfile']['firstName']
+                    first_name = encoding.smart_str(first_name, encoding='ascii', errors='ignore')
+                    first_name = first_name.lower()
+                    last_name = c['hitInfo']['com.linkedin.voyager.search.SearchProfile']['miniProfile']['lastName']
+                    last_name = encoding.smart_str(last_name, encoding='ascii', errors='ignore')
+                    last_name = last_name.lower()
+                    # Around 30% of people keep putting Certs in last name, so strip these out.
+                    last_name = last_name.split(' ', 1)[0]
+                    full_name = first_name + " " + last_name
+                    # full_name = re.sub("[^a-zA-Z ]+", "", full_name)
+
+                    rooturl = c['hitInfo']['com.linkedin.voyager.search.SearchProfile']['miniProfile']['picture'][
+                        'com.linkedin.common.VectorImage']['rootUrl']
+                    artifact = c['hitInfo']['com.linkedin.voyager.search.SearchProfile']['miniProfile']['picture'][
+                        'com.linkedin.common.VectorImage']['artifacts'][3]['fileIdentifyingUrlPathSegment']
+                    person_image = rooturl + artifact
+                    person_image = encoding.smart_str(person_image, encoding='ascii', errors='ignore')
+                    linkedin = "https://www.linkedin.com/in/%s" % \
+                               c['hitInfo']['com.linkedin.voyager.search.SearchProfile']['miniProfile'][
+                                   'publicIdentifier']
+                    linkedin = encoding.smart_str(linkedin, encoding='ascii', errors='ignore')
+                    urllib.request.urlretrieve(person_image, "temp-targets/" + full_name + ".jpg")
+                    person = Person(first_name, last_name, full_name, "temp-targets/" + full_name + ".jpg")
+                    person.person_imagelink = person_image
+                    person.linkedin = linkedin
+                    person.linkedinimage = person_image
+                    peoplelist.append(person)
+                    # print person.linkedin
+                    # print person_image
+                except Exception as e:
+                    # This triggers when a profile doesn't have an image associated with it
+                    continue
+
+# To continue a Social Mapper run for additional sites.
+if args.format == "socialmapper":
+    if args.a == True:
+        print(
+            "This option is for adding additional sites to a Social Mapper report\nFeed in a Social Mapper HTML file that's only been partially run, for example:\nFirst run (LinkedIn, Facebook, Twitter): python social_mapper -f company -i \"SpiderLabs\" -m fast -t standard -li -fb -tw\n Second run (adding Instagram and Google Plus): python social_mapper -f socialmapper -i SpiderLabs-social-mapper.html -m fast -t standard -ig -gp")
+        sys.exit(1)
+    exit = False
+    try:
+        os.remove('backup.html')
+    except OSError:
+        pass
+    if not os.path.exists('temp-targets'):
+        os.makedirs('temp-targets')
+    copyfile(args.input, 'SM-Results/backup.html')
+    print("Backup of original report created: 'SM-Results/backup.html'")
+
+    f = open(args.input)
+    soup = BeautifulSoup(f, 'html.parser')
+    f.close()
+
+    tbodylist = soup.findAll("tbody")
+
+    for personhtml in tbodylist:
+        person_image = encoding.smart_str(personhtml.findAll("td")[0].string, encoding='ascii',
+                                          errors='ignore').replace(";", "")
+        full_name = encoding.smart_str(personhtml.findAll("td")[1].string, encoding='ascii', errors='ignore')
+        first_name = full_name.split(" ")[0]
+        last_name = full_name.split(" ", 1)[1]
+        urllib.request.urlretrieve(person_image, "temp-targets/" + full_name + ".jpg")
+        person = Person(first_name, last_name, full_name, "temp-targets/" + full_name + ".jpg")
+        person.person_imagelink = person_image
+        person.linkedin = encoding.smart_str(personhtml.findAll("td")[2].find("a")['href'], encoding='ascii',
+                                             errors='ignore').replace(";", "")
+        person.linkedinimage = encoding.smart_str(personhtml.findAll("td")[2].find("img")['src'], encoding='ascii',
+                                                  errors='ignore').replace(";", "")
+        person.facebook = encoding.smart_str(personhtml.findAll("td")[3].find("a")['href'], encoding='ascii',
+                                             errors='ignore').replace(";", "")
+        person.facebookimage = encoding.smart_str(personhtml.findAll("td")[3].find("img")['src'], encoding='ascii',
+                                                  errors='ignore').replace(";", "")
+        person.facebookcdnimage = encoding.smart_str(personhtml.findAll("td")[3].find("img")['src'], encoding='ascii',
+                                                     errors='ignore').replace(";", "")
+        person.twitter = encoding.smart_str(personhtml.findAll("td")[4].find("a")['href'], encoding='ascii',
+                                            errors='ignore').replace(";", "")
+        person.twitterimage = encoding.smart_str(personhtml.findAll("td")[4].find("img")['src'], encoding='ascii',
+                                                 errors='ignore').replace(";", "")
+        person.instagram = encoding.smart_str(personhtml.findAll("td")[5].find("a")['href'], encoding='ascii',
+                                              errors='ignore').replace(";", "")
+        person.instagramimage = encoding.smart_str(personhtml.findAll("td")[5].find("img")['src'], encoding='ascii',
+                                                   errors='ignore').replace(";", "")
+        person.pinterest = encoding.smart_str(personhtml.findAll("td")[6].find("a")['href'], encoding='ascii',
+                                              errors='ignore').replace(";", "")
+        person.pinterestimage = encoding.smart_str(personhtml.findAll("td")[6].find("img")['src'], encoding='ascii',
+                                                   errors='ignore').replace(";", "")
+        person.vk = encoding.smart_str(personhtml.findAll("td")[7].find("a")['href'], encoding='ascii',
+                                       errors='ignore').replace(";", "")
+        person.vkimage = encoding.smart_str(personhtml.findAll("td")[7].find("img")['src'], encoding='ascii',
+                                            errors='ignore').replace(";", "")
+        person.weibo = encoding.smart_str(personhtml.findAll("td")[8].find("a")['href'], encoding='ascii',
+                                          errors='ignore').replace(";", "")
+        person.weiboimage = encoding.smart_str(personhtml.findAll("td")[8].find("img")['src'], encoding='ascii',
+                                               errors='ignore').replace(";", "")
+        person.douban = encoding.smart_str(personhtml.findAll("td")[9].find("a")['href'], encoding='ascii',
+                                           errors='ignore').replace(";", "")
+        person.doubanimage = encoding.smart_str(personhtml.findAll("td")[9].find("img")['src'], encoding='ascii',
+                                                errors='ignore').replace(";", "")
+        peoplelist.append(person)
+
+if exit:
+    print("Input Error, check options relating to format and input")
+    sys.exit(1)
+
+# Pass peoplelist to modules for filling out
+if args.a == True or args.fb == True:
+    if not (facebook_username == "" or facebook_password == ""):
+        try:
+            peoplelist = fill_facebook(peoplelist)
+        except Exception as e:
+            print("[-] Error Filling out Facebook Profiles [-]")
+            print(e)
+            print("[-]")
+    else:
+        print("Please provide Facebook Login Credentials in the social_mapper.py file")
+if args.a == True or args.tw == True:
+    if not (twitter_username == "" or twitter_password == ""):
+        peoplelist = fill_twitter(peoplelist)
+    else:
+        print("Please provide Twitter Login Credentials in the social_mapper.py file")
+if args.a == True or args.pin == True:
+    if not (pinterest_username == "" or pinterest_password == ""):
+        peoplelist = fill_pinterest(peoplelist)
+    else:
+        print("Please provide Pinterest Login Credentials in the social_mapper.py file")
+if args.a == True or args.ig == True:
+    if not (instagram_username == "" or instagram_password == ""):
+        peoplelist = fill_instagram(peoplelist)
+    else:
+        print("Please provide Instagram Login Credentials in the social_mapper.py file")
+if not args.format == "linkedint" and not args.format == "company":
+    if args.a == True or args.li == True:
+        if not (linkedin_username == "" or linkedin_password == ""):
+            peoplelist = fill_linkedin(peoplelist)
+        else:
+            print("Please provide LinkedIn Login Credentials in the social_mapper.py file")
+if args.a == True or args.vk == True:
+    if not (vk_username == "" or vk_password == ""):
+        peoplelist = fill_vkontakte(peoplelist)
+    else:
+        print("Please provide VK (VKontakte) Login Credentials in the social_mapper.py file")
+if args.a == True or args.wb == True:
+    if not (weibo_username == "" or weibo_password == ""):
+        peoplelist = fill_weibo(peoplelist)
+    else:
+        print("Please provide Weibo Login Credentials in the social_mapper.py file")
+if args.a == True or args.db == True:
+    if not (douban_username == "" or douban_password == ""):
+        peoplelist = fill_douban(peoplelist)
+    else:
+        print("Please provide Douban Login Credentials in the social_mapper.py file")
+
+# Write out updated people list to a CSV file along with other output if
+csv = []
+
+if not os.path.exists("SM-Results"):
+    os.makedirs("SM-Results")
+
+dot_removed = False
+if args.input[0] == ".":
+    args.input = args.input[1:]
+    dot_removed = True
+
+outputfilename = "SM-Results/" + args.input.replace("\"", "").replace("/", "-") + "-social-mapper.csv"
+phishingoutputfilename = "SM-Results/" + args.input.replace("\"", "").replace("/", "-")
+if args.format == "imagefolder":
+    outputfilename = "SM-Results/results-social-mapper.csv"
+    phishingoutputfilename = "SM-Results/results"
+filewriter = open(outputfilename.format(outputfilename), 'w')
+titlestring = "Full Name,"
+if args.a == True or args.li == True or args.format == "socialmapper":
+    titlestring = titlestring + "LinkedIn,"
+    if args.email is not None:
+        phishingoutputfilenamelinkedin = phishingoutputfilename + "-linkedin.csv"
+        filewriterlinkedin = open(phishingoutputfilenamelinkedin.format(phishingoutputfilenamelinkedin), 'w')
+if args.a == True or args.fb == True or args.format == "socialmapper":
+    titlestring = titlestring + "Facebook,"
+    if args.email is not None:
+        phishingoutputfilenamefacebook = phishingoutputfilename + "-facebook.csv"
+        filewriterfacebook = open(phishingoutputfilenamefacebook.format(phishingoutputfilenamefacebook), 'w')
+if args.a == True or args.tw == True or args.format == "socialmapper":
+    titlestring = titlestring + "Twitter,"
+    if args.email is not None:
+        phishingoutputfilenametwitter = phishingoutputfilename + "-twitter.csv"
+        filewritertwitter = open(phishingoutputfilenametwitter.format(phishingoutputfilenametwitter), 'w')
+if args.a == True or args.pin == True or args.format == "socialmapper":
+    titlestring = titlestring + "Pinterest,"
+    if args.email is not None:
+        phishingoutputfilenamepinterest = phishingoutputfilename + "-pinterest.csv"
+        filewriterpinterest = open(phishingoutputfilenamepinterest.format(phishingoutputfilenamepinterest), 'w')
+if args.a == True or args.ig == True or args.format == "socialmapper":
+    titlestring = titlestring + "Instagram,"
+    if args.email is not None:
+        phishingoutputfilenameinstagram = phishingoutputfilename + "-instagram.csv"
+        filewriterinstagram = open(phishingoutputfilenameinstagram.format(phishingoutputfilenameinstagram), 'w')
+if args.a == True or args.vk == True or args.format == "socialmapper":
+    titlestring = titlestring + "VKontakte,"
+    if args.email is not None:
+        phishingoutputfilenamevkontakte = phishingoutputfilename + "-vkontakte.csv"
+        filewritervkontakte = open(phishingoutputfilenamevkontakte.format(phishingoutputfilenamevkontakte), 'w')
+if args.a == True or args.wb == True or args.format == "socialmapper":
+    titlestring = titlestring + "Weibo,"
+    if args.email is not None:
+        phishingoutputfilenameweibo = phishingoutputfilename + "-weibo.csv"
+        filewriterweibo = open(phishingoutputfilenameweibo.format(phishingoutputfilenameweibo), 'w')
+if args.a == True or args.db == True or args.format == "socialmapper":
+    titlestring = titlestring + "Douban,"
+    if args.email is not None:
+        phishingoutputfilenamedouban = phishingoutputfilename + "-douban.csv"
+        filewriterdouban = open(phishingoutputfilenamedouban.format(phishingoutputfilenamedouban), 'w')
+titlestring = titlestring[:-1]
+# filewriter.write("Full Name,LinkedIn,Facebook,Twitter,Pinterest,Instagram,Google Plus,Vkontakte,Weibo,Douban\n")
+filewriter.write(titlestring)
+filewriter.write("\n")
+print("")
+for person in peoplelist:
+    writestring = '"%s",' % (person.full_name)
+
+    if args.email is not None:
+        try:
+            # Try to create email by replacing initials and names with persons name
+            email = args.email.replace("<first>", person.first_name).replace("<last>", person.last_name).replace("<f>",
+                                                                                                                 person.first_name[
+                                                                                                                     0]).replace(
+                "<l>", person.last_name[0])
+        except:
+            email = "Error"
+
+    if args.a == True or args.li == True or args.format == "socialmapper":
+        writestring = writestring + '"%s",' % (person.linkedin)
+        if person.linkedin != "" and args.email is not None:
+            if email != "Error":
+                linkedinwritestring = '"%s","%s","%s","%s","%s","%s"\n' % (
+                person.first_name, person.last_name, person.full_name, email, person.linkedin, person.linkedinimage)
+                filewriterlinkedin.write(linkedinwritestring)
+    if args.a == True or args.fb == True or args.format == "socialmapper":
+        writestring = writestring + '"%s",' % (person.facebook)
+        if person.facebook != "" and args.email is not None:
+            if email != "Error":
+                facebookwritestring = '"%s","%s","%s","%s","%s","%s"\n' % (
+                person.first_name, person.last_name, person.full_name, email, person.facebook, person.facebookcdnimage)
+                filewriterfacebook.write(facebookwritestring)
+    if args.a == True or args.tw == True or args.format == "socialmapper":
+        writestring = writestring + '"%s",' % (person.twitter)
+        if person.twitter != "" and args.email is not None:
+            if email != "Error":
+                twitterwritestring = '"%s","%s","%s","%s","%s","%s"\n' % (
+                person.first_name, person.last_name, person.full_name, email, person.twitter, person.twitterimage)
+                filewritertwitter.write(twitterwritestring)
+    if args.a == True or args.pin == True or args.format == "socialmapper":
+        writestring = writestring + '"%s",' % (person.pinterest)
+        if person.pinterest != "" and args.email is not None:
+            if email != "Error":
+                pinterestwritestring = '"%s","%s","%s","%s","%s","%s"\n' % (
+                person.first_name, person.last_name, person.full_name, email, person.pinterest, person.pinterestimage)
+                filewriterpinterest.write(pinterestwritestring)
+    if args.a == True or args.ig == True or args.format == "socialmapper":
+        writestring = writestring + '"%s",' % (person.instagram)
+        if person.instagram != "" and args.email is not None:
+            if email != "Error":
+                instagramwritestring = '"%s","%s","%s","%s","%s","%s"\n' % (
+                person.first_name, person.last_name, person.full_name, email, person.instagram, person.instagramimage)
+                filewriterinstagram.write(instagramwritestring)
+    if args.a == True or args.vk == True or args.format == "socialmapper":
+        writestring = writestring + '"%s",' % (person.vk)
+        if person.vk != "" and args.email is not None:
+            if email != "Error":
+                vkwritestring = '"%s","%s","%s","%s","%s","%s"\n' % (
+                person.first_name, person.last_name, person.full_name, email, person.vk, person.vkimage)
+                filewritervkontakte.write(vkwritestring)
+    if args.a == True or args.wb == True or args.format == "socialmapper":
+        writestring = writestring + '"%s",' % (person.weibo)
+        if person.weibo != "" and args.email is not None:
+            if email != "Error":
+                weibowritestring = '"%s","%s","%s","%s","%s","%s"\n' % (
+                person.first_name, person.last_name, person.full_name, email, person.weibo, person.weiboimage)
+                filewriterweibo.write(weibowritestring)
+    if args.a == True or args.db == True or args.format == "socialmapper":
+        writestring = writestring + '"%s",' % (person.douban)
+        if person.douban != "" and args.email is not None:
+            if email != "Error":
+                doubanwritestring = '"%s","%s","%s","%s","%s","%s"\n' % (
+                person.first_name, person.last_name, person.full_name, email, person.douban, person.doubanimage)
+                filewriterdouban.write(doubanwritestring)
+
+    writestring = writestring[:-1]
+    filewriter.write(writestring)
+    # filewriter.write('"%s","%s","%s","%s","%s","%s","%s","%s","%s"' % (person.full_name, person.linkedin, person.facebook, person.twitter, person.pinterest, person.instagram, person.vk, person.weibo, person.douban))
+    filewriter.write("\n")
+
+    terminalstring = ""
+    # print "\n" + person.full_name
+    if person.linkedin != "":
+        terminalstring = terminalstring + "\tLinkedIn: " + person.linkedin + "\n"
+    if person.facebook != "":
+        terminalstring = terminalstring + "\tFacebook: " + person.facebook + "\n"
+    if person.twitter != "":
+        terminalstring = terminalstring + "\tTwitter: " + person.twitter + "\n"
+    if person.pinterest != "":
+        terminalstring = terminalstring + "\tPinterest: " + person.pinterest + "\n"
+    if person.instagram != "":
+        terminalstring = terminalstring + "\tInstagram: " + person.instagram + "\n"
+    if person.vk != "":
+        terminalstring = terminalstring + "\tVkontakte: " + person.vk + "\n"
+    if person.weibo != "":
+        terminalstring = terminalstring + "\tWeibo: " + person.weibo + "\n"
+    if person.douban != "":
+        terminalstring = terminalstring + "\tDouban: " + person.douban + "\n"
+    if terminalstring != "":
+        print(person.full_name + "\n" + terminalstring)
+
+print("\nResults file: " + outputfilename)
+filewriter.close()
+
+# Close all the filewriters that may exist
+
+try:
+    if filewriterlinkedin:
+        filewriterlinkedin.close()
+except:
+    pass
+try:
+    if filewriterfacebook:
+        filewriterfacebook.close()
+except:
+    pass
+
+try:
+    if filewritertwitter:
+        filewritertwitter.close()
+except:
+    pass
+try:
+    if filewriterpinterest:
+        filewriterpinterest.close()
+except:
+    pass
+try:
+    if filewriterinstagram:
+        filewriterinstagram.close()
+except:
+    pass
+try:
+    if filewritervkontakte:
+        filewritervkontakte.close()
+except:
+    pass
+try:
+    if filewriterweibo:
+        filewriterweibo.close()
+except:
+    pass
+try:
+    if filewriterdouban:
+        filewriterdouban.close()
+except:
+    pass
+
+# Code for generating HTML file
+htmloutputfilename = "SM-Results/" + args.input.replace("\"", "").replace("/", "-") + "-social-mapper.html"
+if args.format == "imagefolder":
+    htmloutputfilename = "SM-Results/results-social-mapper.html"
+filewriter = open(htmloutputfilename.format(htmloutputfilename), 'w')
+# background-color: #4CAF50;
+css = """<meta charset="utf-8" />
+<style>
+    #employees {
+        font-family: "Trebuchet MS", Arial, Helvetica, sans-serif;
+        border-collapse: collapse;
+        width: 100%;
+    }
+
+    #employees td, #employees th {
+        border: 1px solid #ddd;
+        padding: 8px;
+    }
+
+    #employees td {
+        height: 100px;
+    }
+
+    #employees tbody:nth-child(even){
+        background-color: #f2f2f2;
+    }
+
+    #employees th {
+        padding-top: 12px;
+        padding-bottom: 12px;
+        text-align: left;
+        background-color: #12db00;
+        color: white;
+    }
+
+
+    #employees .hasTooltipleft span {
+        visibility: hidden;
+        background-color: black;
+        color: #fff;
+        text-align: center;
+        border-radius: 6px;
+        padding: 5px 0;
+
+        /* Position the tooltip */
+        position: absolute;
+        left:15%;
+        z-index: 1;
+
+    }
+
+    #employees .hasTooltipcenterleft span {
+        visibility: hidden;
+        background-color: black;
+        color: #fff;
+        text-align: center;
+        border-radius: 6px;
+        padding: 5px 0;
+
+        /* Position the tooltip */
+        position: absolute;
+        left:20%;
+        z-index: 1;
+
+    }
+
+    #employees .hasTooltipcenterright span {
+        visibility: hidden;
+        background-color: black;
+        color: #fff;
+        text-align: center;
+        border-radius: 6px;
+        padding: 5px 0;
+
+        /* Position the tooltip */
+        position: absolute;
+        left:25%;
+        z-index: 1;
+
+    }
+
+    #employees .hasTooltipright span {
+        visibility: hidden;
+        background-color: black;
+        color: #fff;
+        text-align: center;
+        border-radius: 6px;
+        padding: 5px 0;
+
+        /* Position the tooltip */
+        position: absolute;
+        left:30%;
+        z-index: 1;
+
+    }
+
+    #employees .hasTooltipfarright span {
+        visibility: hidden;
+        background-color: black;
+        color: #fff;
+        text-align: center;
+        border-radius: 6px;
+        padding: 5px 0;
+
+        /* Position the tooltip */
+        position: absolute;
+        left:35%;
+        z-index: 1;
+
+    }
+
+    #employees .hasTooltipleft:hover span {
+        visibility: visible;
+    }
+
+    #employees .hasTooltipcenterleft:hover span {
+        visibility: visible;
+    }
+
+    #employees .hasTooltipcenterright:hover span {
+        visibility: visible;
+    }
+
+    #employees .hasTooltipright:hover span {
+        visibility: visible;
+    }
+
+    #employees .hasTooltipfarright:hover span {
+        visibility: visible;
+    }
+
+    #employees tbody:hover {
+        background-color: #aaa;
+    }
+}
+
+</style>
+"""
+foot = "</table></center>"
+header = """<center><table id=\"employees\">
+            <tr>
+                <th rowspan=\"2\">Photo</th>
+                <th rowspan=\"2\">Name</th>
+                <th>LinkedIn</th>
+                <th>Facebook</th>
+                <th>Twitter</th>
+                <th>Instagram</th>
+            </tr>
+            <tr>
+                <th>Pinterest</th>
+                <th>VKontakte</th>
+                <th>Weibo</th>
+                <th>Douban</th>
+            </tr>
+             """
+filewriter.write(css)
+filewriter.write(header)
+for person in peoplelist:
+    local_image_link = person.person_imagelink
+    if args.format == "imagefolder":
+        outputfoldername =  args.input.replace("\"","").replace("/","-") + "-social-mapper"
+        local_image_link = "./" + outputfoldername + "/" + person.full_name + ".jpg"
+    
+    body = "<tbody>" \
+           "<tr>" \
+           "<td class=\"hasTooltipleft\" rowspan=\"2\"><img src=\"%s\" width=auto height=auto style=\"max-width:200px; max-height:200px;\"><span>%s</span></td>" \
+           "<td rowspan=\"2\">%s</td>" \
+           "<td class=\"hasTooltipcenterleft\"><a href=\"%s\"><img src=\"%s\" onerror=\"this.style.display=\'none\'\" width=auto height=auto style=\"max-width:100px; max-height:100px;\"><span>LinkedIn:<br>%s</span></a></td>" \
+           "<td class=\"hasTooltipcenterright\"><a href=\"%s\"><img src=\"%s\" onerror=\"this.style.display=\'none\'\" width=auto height=auto style=\"max-width:100px; max-height:100px;\"><span>Facebook:<br>%s</span></a></td>" \
+           "<td class=\"hasTooltipright\"><a href=\"%s\"><img src=\"%s\" onerror=\"this.style.display=\'none\'\" width=auto height=auto style=\"max-width:100px; max-height:100px;\"><span>Twitter:<br>%s</span></a></td>" \
+           "<td class=\"hasTooltipfarright\"><a href=\"%s\"><img src=\"%s\" onerror=\"this.style.display=\'none\'\" width=auto height=auto style=\"max-width:100px; max-height:100px;\"><span>Instagram:<br>%s</span></a></td>" \
+           "</tr>" \
+           "<tr>" \
+           "<td class=\"hasTooltipcenterleft\"><a href=\"%s\"><img src=\"%s\" onerror=\"this.style.display=\'none\'\" width=auto height=auto style=\"max-width:100px; max-height:100px;\"><span>Pinterest:<br>%s</span></a></td>" \
+           "<td class=\"hasTooltipcenterright\"><a href=\"%s\"><img src=\"%s\" onerror=\"this.style.display=\'none\'\" width=auto height=auto style=\"max-width:100px; max-height:100px;\"><span>VKontakte:<br>%s</span></a></td>" \
+           "<td class=\"hasTooltipright\"><a href=\"%s\"><img src=\"%s\" onerror=\"this.style.display=\'none\'\" width=auto height=auto style=\"max-width:100px; max-height:100px;\"><span>Weibo:<br>%s</span></a></td>" \
+           "<td class=\"hasTooltipfarright\"><a href=\"%s\"><img src=\"%s\" onerror=\"this.style.display=\'none\'\" width=auto height=auto style=\"max-width:100px; max-height:100px;\"><span>Douban:<br>%s</span></a></td>" \
+           "</tr>" \
+           "</tbody>" % (
+           local_image_link, local_image_link, person.full_name, person.linkedin, person.linkedinimage,
+           person.linkedin, person.facebook, person.facebookcdnimage, person.facebook, person.twitter,
+           person.twitterimage, person.twitter, person.instagram, person.instagramimage, person.instagram,
+           person.pinterest, person.pinterestimage, person.pinterest, person.vk, person.vkimage, person.vk,
+           person.weibo, person.weiboimage, person.weibo, person.douban, person.doubanimage, person.douban)
+    filewriter.write(body)
+
+filewriter.write(foot)
+print("HTML file: " + htmloutputfilename + "\n")
+filewriter.close()
+
+# copy images from Social Mapper to output folder
+outputfoldername = "SM-Results/" + args.input.replace("\"","").replace("/","-") + "-social-mapper"
+if args.format == "imagefolder":
+    if dot_removed == True:
+        args.input = "." + args.input
+    if os.path.exists(outputfoldername):
+        try:
+            shutil.rmtree(outputfoldername)
+        except:
+            print("output folder for images for .html already exists and for some reason couldnt be removed and replaced")
+    shutil.copytree(args.input, outputfoldername)
+else:
+    os.rename('temp-targets',outputfoldername)
+    print("Image folder: " + outputfoldername + "\n")
+#if not os.path.exists('temp-targets'):
+#    shutil.rmtree('temp-targets')
+
+#remove the last potential target image if it exists
+try:
+    os.remove("potential_target_image.jpg")
+except:
+    pass
+
+# print datetime.now() - startTime
+# completiontime = datetime.now() - startTime
+print("Task Duration: " + str(datetime.now() - startTime))
