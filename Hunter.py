@@ -161,4 +161,52 @@ class PotentialPerson(object):
             # print image_link
             # print "----"
             cookies = FacebookfinderObject.getCookies()
-
+             if image_link:
+                try:
+                    # Set fake user agent as Facebook blocks Python requests default user agent
+                    headers = {
+                        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6) AppleWebKit/602.2.14 (KHTML, like Gecko) Version/10.0.1 Safari/602.2.14'}
+                    # Get target image using requests, providing Selenium cookies, and fake user agent
+                    response = requests.get(image_link, cookies=cookies, headers=headers, stream=True)
+                    with open('potential_target_image.jpg', 'wb') as out_file:
+                        # Facebook images are sent content encoded so need to decode them
+                        response.raw.decode_content = True
+                        shutil.copyfileobj(response.raw, out_file)
+                    del response
+                    potential_target_image = face_recognition.load_image_file("potential_target_image.jpg")
+                    try:  # try block for when an image has no faces
+                        potential_target_encoding = face_recognition.face_encodings(potential_target_image)[0]
+                    except:
+                        continue
+                    results = face_recognition.face_distance([target_encoding], potential_target_encoding)
+                    for result in results:
+                        # print profilelink + " + " + cdnpicture + " + " + image_link
+                        # print result
+                        # print ""
+                        # check here to do early break if using fast mode, otherwise if accurate set highest distance in array then do a check for highest afterwards
+                        if args.mode == "fast":
+                            if result < threshold:
+                                person.facebook = encoding.smart_str(profilelink, encoding='ascii', errors='ignore')
+                                person.facebookimage = encoding.smart_str(image_link, encoding='ascii', errors='ignore')
+                                person.facebookcdnimage = encoding.smart_str(cdnpicture, encoding='ascii',
+                                                                             errors='ignore')
+                                if args.vv == True:
+                                    print("\tMatch found: " + person.full_name)
+                                    print("\tFacebook: " + person.facebook)
+                                early_break = True
+                                break
+                        elif args.mode == "accurate":
+                            # code for accurate mode here, check if result is higher than current distance (best match in photo with multiple people) and store highest for later comparison
+                            if result < threshold:
+                                # print "Adding to updated list"
+                                # print distance
+                                # print "Match over threshold: \n" + profilelink + "\n" + result
+                                updatedlist.append([profilelink, image_link, result, cdnpicture])
+                except Exception as e:
+                    print(e)
+                    # print(e)
+                    # print "Error getting image link, retrying login and getting fresh cookies"
+                    # FacebookfinderObject.doLogin(facebook_username,facebook_password)
+                    # cookies = FacebookfinderObject.getCookies()
+                    continue
+        # For accurate mode pull out largest distance and if it's bigger than the threshold then it's the most accurate result
