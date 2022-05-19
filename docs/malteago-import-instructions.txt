@@ -12,5 +12,5 @@ Guide to importing Social Mapper results into Maltego Community (Free) Edition
 
 6) In the Connectivity Table in Mapping Configuration point the Person to each URL, and the Organisation to the Person (Image 3).
 
-7) Verify This is correct in the Connectivity Graph View. Then complete the import. 
+7) Verify This is correct in the Connectivity Graph View. Then complete the import.
 
