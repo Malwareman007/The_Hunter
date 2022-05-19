@@ -164,7 +164,8 @@ python3 Hunter.py -f company -i "Evil Corp LLC" -m accurate -li -e "<first>.<las
 
 Social Media sites often change their page formats and class names, if Hunter isn't working for you on a specific site, check out the [Trouble](Troubleshooting_The_Hunter) section for troubleshooting advice on how to fix it. Please feel free to submit a pull request with your fixes.
 
-![image](https://user-images.githubusercontent.com/86009160/168471623-129f4c3d-c546-465f-b496-6893e375b0d8.png)
+![Untitled (1800 × 1200 px)](https://user-images.githubusercontent.com/78251168/169288554-36548e1e-636a-4924-a6c3-ffd107fb1130.png)
+
 
 
 ### Maltego
