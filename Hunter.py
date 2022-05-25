@@ -18,14 +18,14 @@ import requests
 from bs4 import BeautifulSoup
 from django.utils import encoding
 
-from modules import doubanfinder
-from modules import facebookfinder
-from modules import instagramfinder
-from modules import linkedinfinder
-from modules import pinterestfinder
-from modules import twitterfinder
-from modules import vkontaktefinder
-from modules import weibofinder
+from mod import doubanfinder
+from mod import facebookfinder
+from mod import instagramfinder
+from mod import linkedinfinder
+from mod import pinterestfinder
+from mod import twitterfinder
+from mod import vkontaktefinder
+from mod import weibofinder
 
 assert sys.version_info >= (3,), "Only Python 3 is currently supported."
 
