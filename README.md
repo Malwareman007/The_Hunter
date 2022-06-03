@@ -1,6 +1,21 @@
 # The Hunter
+<p align="center">
+  
+![a](https://user-images.githubusercontent.com/86009160/171856887-0f7ad9f2-50ff-4c71-aaff-5802cdee6746.jpg)
 
+</p>
+  
 ![alt text](https://img.shields.io/badge/Python-3_only-blue.svg "Python 3 only")
+<a href="https://github.com/Malwareman007/The_Hunter" target="_blank">
+    <img alt="Maintenance" src="https://img.shields.io/badge/Maintained%3F-yes-green.svg" />
+  </a>
+  <a href="https://github.com/Malwareman007/The_Hunter/blob/main/README.md" target="_blank">
+    <img alt="Documentation" src="https://img.shields.io/badge/Documentation-yes-brightgreen.svg" />
+  </a>
+    <a href="https://github.com/Malwareman007/The_Hunter/blob/main/LICENSE" target="_blank">
+    <img alt="License: AGPL-3.0" src="https://img.shields.io/github/license/Malwareman007/The_Hunter" />
+  </a>
+  
 
 #### **WARNING: FACEBOOK NOW DETECTS THIS AFTER A FEW 100 SEARCHES, USE ONLY DISPOSABLE FACEBOOK ACCOUNTS**
 <img src="https://github.com/MLX15/MLX15/blob/master/a.gif"></a>
@@ -171,13 +186,24 @@ Social Media sites often change their page formats and class names, if Hunter is
 ### Maltego
 For a guide to loading your Hunter results into Maltego, check out the [docs](docs/Maltego_Import_Guide) section.
 
-## Authors
+## 👤 Authors
 <img src="https://github.com/MLX15/MLX15/blob/master/a.gif"></a>
+👤 GitHub: [@**Malwareman007**](https://github.com/Malwareman)<br>
+👤 GitHub: [@**nano-bot01**](https://github.com/nano-bot01)<br>
 
-* [**Malwareman007**](https://github.com/Malwareman007)
-* [**nano-bot01**](https://github.com/nano-bot01)
 
+## 🤝 Contributing
 <img src="https://github.com/MLX15/MLX15/blob/master/a.gif"></a>
+Contributions, issues and feature requests are welcome!<br />Feel free to check [issues page](https://github.com/Malwareman007/The_Hunter/issues).
+
+
+
+## ❤ Show your support
+<img src="https://github.com/MLX15/MLX15/blob/master/a.gif"></a>
+Give a ⭐️ if this project helped you!
+
+
+***
 
 
 
